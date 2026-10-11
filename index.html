@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zyntrox.X - Roblox Scripts Cloud</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 500: '#10B981', 600: '#059669', dark: '#111827', card: '#1F2937' }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDKs (Modo Modular / Compatibles) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col font-sans transition-colors duration-300 dark:bg-gray-950 dark:text-gray-100 bg-gray-50 text-gray-900">
+
+    <!-- Navbar -->
+    <header class="bg-gray-900 dark:bg-gray-900 bg-white border-b border-gray-800 dark:border-gray-800 border-gray-200 sticky top-0 z-50 px-4 py-3 shadow-md">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="router('home')">
+                <span class="text-2xl font-black tracking-wider text-emerald-500">ZYNTROX<span class="text-purple-500">.X</span></span>
+            </div>
+            
+            <!-- Buscador Global -->
+            <div class="hidden md:flex items-center bg-gray-800 dark:bg-gray-800 bg-gray-100 px-3 py-1.5 rounded-lg w-96 border border-gray-700">
+                <i class="fa-solid fa-magnifying-glass text-gray-400 mr-2"></i>
+                <input type="text" id="searchInput" oninput="filterScripts()" placeholder="Buscar scripts o usuarios..." class="bg-transparent border-none outline-none w-full text-sm text-gray-200 dark:text-gray-200 text-gray-800">
+            </div>
+
+            <!-- Acciones de Usuario -->
+            <div class="flex items-center space-x-3">
+                <button onclick="router('settings')" class="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition"><i class="fa-solid fa-gear"></i></button>
+                <div id="authNavContainer"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="flex-grow max-w-7xl mx-auto w-full p-4 md:p-6">
+        
+        <!-- VISTA: HOME -->
+        <section id="view-home" class="space-y-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-emerald-900/40 to-purple-900/40 p-6 rounded-2xl border border-emerald-500/20">
+                <div>
+                    <h1 class="text-3xl font-black text-white">Comunidad Zyntrox.X</h1>
+                    <p class="text-gray-300 text-sm mt-1">Comparte tus mejores scripts de Roblox sincronizados en la nube de Firebase.</p>
+                </div>
+                <button onclick="openPublishModal()" id="btnPublish" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl shadow-lg transition flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> Publicar Script
+                </button>
+            </div>
+
+            <!-- Grid de Scripts -->
+            <div id="scriptsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Se inyecta dinámicamente -->
+            </div>
+        </section>
+
+        <!-- VISTA: LOGIN / REGISTRO -->
+        <section id="view-auth" class="hidden max-w-md mx-auto mt-12 bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl">
+            <h2 id="authTitle" class="text-2xl font-bold text-center mb-6 text-white">Iniciar Sesión</h2>
+            
+            <div id="authError" class="hidden mb-4 p-3 bg-red-900/50 border border-red-500 text-red-200 text-sm rounded-lg text-center font-medium"></div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Nombre de Usuario</label>
+                    <input type="text" id="usernameInput" placeholder="Ej. TuNombre" class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Contraseña</label>
+                    <input type="password" id="passwordInput" placeholder="••••••••" class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <button onclick="handleAuthSubmit()" id="authSubmitBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition shadow-lg">Entrar</button>
+                
+                <div class="text-center mt-4">
+                    <button onclick="toggleAuthMode()" id="authSwitchBtn" class="text-sm text-emerald-400 hover:underline">¿No tienes cuenta? Regístrate aquí</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- VISTA: AJUSTES -->
+        <section id="view-settings" class="hidden max-w-2xl mx-auto bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-xl space-y-6">
+            <h2 class="text-2xl font-bold text-white border-b border-gray-800 pb-4">Ajustes del Sistema</h2>
+            
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="font-semibold text-white">Modo de Apariencia</h3>
+                    <p class="text-sm text-gray-400">Modo oscuro por defecto activo.</p>
+                </div>
+                <button onclick="toggleTheme()" class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-xl text-emerald-400 font-bold border border-gray-700">
+                    <i id="themeIcon" class="fa-solid fa-moon mr-2"></i> <span id="themeText">Modo Oscuro</span>
+                </button>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-gray-800 pt-6">
+                <div>
+                    <h3 class="font-semibold text-white">Idioma / Language</h3>
+                    <p class="text-sm text-gray-400">Selecciona tu idioma preferido.</p>
+                </div>
+                <select id="langSelect" onchange="changeLanguage(this.value)" class="bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded-xl focus:outline-none">
+                    <option value="es">Español</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+
+            <div id="adminPanelSection" class="hidden border-t border-gray-800 pt-6">
+                <h3 class="text-red-400 font-bold mb-2"><i class="fa-solid fa-shield-halved mr-2"></i> Panel de Administración Global (ZyntroxX)</h3>
+                <p class="text-xs text-gray-400 mb-4">Como administrador exclusivo, puedes gestionar cuentas y scripts en la nube.</p>
+                <button onclick="openAdminModal()" class="bg-red-600 hover:bg-red-500 text-white text-sm font-bold px-4 py-2 rounded-xl transition">Gestionar Cuentas y Publicaciones</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal Publicar Script -->
+    <div id="publishModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-800 w-full max-w-lg p-6 rounded-2xl shadow-2xl space-y-4">
+            <h3 class="text-xl font-bold text-white">Publicar Nuevo Script</h3>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Título del Script</label>
+                <input type="text" id="scriptTitle" class="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Descripción</label>
+                <textarea id="scriptDesc" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white"></textarea>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Código Lua (Script)</label>
+                <textarea id="scriptCode" rows="4" placeholder="print('Hello Zyntrox.X!');" class="w-full bg-gray-950 font-mono text-sm border border-gray-700 rounded-xl p-3 text-emerald-400"></textarea>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">URL de Imagen (Opcional)</label>
+                <input type="text" id="scriptImage" placeholder="https://..." class="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white">
+            </div>
+            <div class="flex justify-end space-x-3 pt-2">
+                <button onclick="closePublishModal()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-300">Cancelar</button>
+                <button onclick="publishScript()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl">Publicar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Admin -->
+    <div id="adminModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-800 w-full max-w-2xl p-6 rounded-2xl shadow-2xl space-y-4 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-3">
+                <h3 class="text-xl font-bold text-red-400">Panel de Control ZyntroxX</h3>
+                <button onclick="closeAdminModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div>
+                <h4 class="font-semibold text-gray-300 mb-2">Usuarios Registrados en la Nube:</h4>
+                <div id="adminUsersList" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de Firebase y Lógica -->
+    <script>
+        // Configuración oficial de Firebase proporcionada
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfn_2qGgQfulK78w1K6BbDxdw68WdhOuw",
+            authDomain: "zyntrox-cloud.firebaseapp.com",
+            projectId: "zyntrox-cloud",
+            storageBucket: "zyntrox-cloud.firebasestorage.app",
+            messagingSenderId: "617190592448",
+            appId: "1:617190592448:web:fd1155d41e90ebd36a4225"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let state = {
+            currentUser: JSON.parse(localStorage.getItem('zyntrox_user')) || null,
+            isRegisterMode: false,
+            scripts: []
+        };
+
+        window.onload = () => {
+            initAdminUser();
+            listenToCloudScripts();
+            updateNav();
+        };
+
+        // Asegurar cuenta única ZyntroxX con contraseña ZyntroxX12345 en Firestore
+        async function initAdminUser() {
+            const adminRef = db.collection('users').doc('ZyntroxX');
+            const doc = await adminRef.get();
+            if(!doc.exists) {
+                await adminRef.set({
+                    username: 'ZyntroxX',
+                    password: 'ZyntroxX12345',
+                    verified: true,
+                    role: 'admin'
+                });
+            }
+        }
+
+        // Sincronización en tiempo real de Scripts con Firestore
+        function listenToCloudScripts() {
+            db.collection('scripts').orderBy('createdAt', 'desc').onSnapshot(snapshot => {
+                state.scripts = [];
+                snapshot.forEach(doc => {
+                    state.scripts.push({ id: doc.id, ...doc.data() });
+                });
+                renderScripts();
+            });
+        }
+
+        function router(view) {
+            ['home', 'auth', 'settings'].forEach(v => {
+                document.getElementById(`view-${v}`).classList.add('hidden');
+            });
+            document.getElementById(`view-${view}`).classList.remove('hidden');
+
+            if(view === 'settings') {
+                if(state.currentUser && state.currentUser.username === 'ZyntroxX') {
+                    document.getElementById('adminPanelSection').classList.remove('hidden');
+                } else {
+                    document.getElementById('adminPanelSection').classList.add('hidden');
+                }
+            }
+        }
+
+        function updateNav() {
+            const container = document.getElementById('authNavContainer');
+            const btnPublish = document.getElementById('btnPublish');
+
+            if(state.currentUser) {
+                btnPublish.classList.remove('hidden');
+                container.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="text-sm font-bold text-emerald-400 flex items-center gap-1">
+                            ${state.currentUser.username} 
+                            ${state.currentUser.username === 'ZyntroxX' ? '<i class="fa-solid fa-circle-check text-blue-400" title="Verificado"></i>' : ''}
+                        </span>
+                        <button onclick="logout()" class="bg-red-600/20 text-red-400 hover:bg-red-600/30 px-3 py-1.5 rounded-lg text-sm font-semibold transition">Salir</button>
+                    </div>
+                `;
+            } else {
+                btnPublish.classList.add('hidden');
+                container.innerHTML = `
+                    <button onclick="router('auth')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-sm transition shadow">Iniciar Sesión</button>
+                `;
+            }
+        }
+
+        function toggleAuthMode() {
+            state.isRegisterMode = !state.isRegisterMode;
+            document.getElementById('authTitle').innerText = state.isRegisterMode ? 'Crear Cuenta' : 'Iniciar Sesión';
+            document.getElementById('authSubmitBtn').innerText = state.isRegisterMode ? 'Registrarse' : 'Entrar';
+            document.getElementById('authSwitchBtn').innerText = state.isRegisterMode ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate aquí';
+            document.getElementById('authError').classList.add('hidden');
+        }
+
+        async function handleAuthSubmit() {
+            const username = document.getElementById('usernameInput').value.trim();
+            const password = document.getElementById('passwordInput').value.trim();
+            const errorBox = document.getElementById('authError');
+
+            if(!username || !password) {
+                errorBox.innerText = "Por favor completa todos los campos.";
+                errorBox.classList.remove('hidden');
+                return;
+            }
+
+            // Exclusividad absoluta de ZyntroxX
+            if(username.toLowerCase() === 'zyntroxX'.toLowerCase() && username !== 'ZyntroxX') {
+                errorBox.innerText = "Este nombre ya esta en uso";
+                errorBox.classList.remove('hidden');
+                return;
+            }
+
+            const userRef = db.collection('users').doc(username);
+
+            if(state.isRegisterMode) {
+                if(username === 'ZyntroxX') {
+                    errorBox.innerText = "Este nombre ya esta en uso";
+                    errorBox.classList.remove('hidden');
+                    return;
+                }
+
+                const doc = await userRef.get();
+                if(doc.exists) {
+                    errorBox.innerText = "Este nombre ya esta en uso";
+                    errorBox.classList.remove('hidden');
+                    return;
+                }
+
+                const newUser = { username, password, verified: false, role: 'user' };
+                await userRef.set(newUser);
+                state.currentUser = newUser;
+                localStorage.setItem('zyntrox_user', JSON.stringify(newUser));
+                router('home');
+                updateNav();
+            } else {
+                const doc = await userRef.get();
+                if(!doc.exists || doc.data().password !== password) {
+                    errorBox.innerText = "Usuario o contraseña incorrectos.";
+                    errorBox.classList.remove('hidden');
+                    return;
+                }
+                state.currentUser = doc.data();
+                localStorage.setItem('zyntrox_user', JSON.stringify(state.currentUser));
+                router('home');
+                updateNav();
+            }
+        }
+
+        function logout() {
+            state.currentUser = null;
+            localStorage.removeItem('zyntrox_user');
+            router('home');
+            updateNav();
+        }
+
+        function renderScripts(filterText = '') {
+            const grid = document.getElementById('scriptsGrid');
+            grid.innerHTML = '';
+
+            const filtered = state.scripts.filter(s => 
+                s.title.toLowerCase().includes(filterText.toLowerCase()) || 
+                s.author.toLowerCase().includes(filterText.toLowerCase())
+            );
+
+            if(filtered.length === 0) {
+                grid.innerHTML = `<p class="text-gray-500 col-span-full text-center py-10">No se encontraron scripts en la nube.</p>`;
+                return;
+            }
+
+            filtered.forEach(script => {
+                const isVerified = script.author === 'ZyntroxX';
+                const card = document.createElement('div');
+                card.className = "bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between space-y-4";
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start">
+                            <h3 class="font-bold text-lg text-white">${script.title}</h3>
+                            ${state.currentUser && (state.currentUser.username === 'ZyntroxX' || state.currentUser.username === script.author) ? `
+                                <button onclick="deleteScript('${script.id}')" class="text-gray-500 hover:text-red-400 text-sm"><i class="fa-solid fa-trash"></i></button>
+                            ` : ''}
+                        </div>
+                        <p class="text-xs text-emerald-400 font-medium mt-1">
+                            Por: ${script.author} ${isVerified ? '<i class="fa-solid fa-circle-check text-blue-400" title="Verificado Oficial"></i>' : ''}
+                        </p>
+                        <p class="text-sm text-gray-300 mt-2">${script.desc}</p>
+                        ${script.image ? `<img src="${script.image}" class="mt-3 rounded-xl max-h-40 w-full object-cover border border-gray-800">` : ''}
+                        <div class="mt-3 bg-gray-950 p-3 rounded-xl border border-gray-800 font-mono text-xs text-emerald-400 overflow-x-auto max-h-24">
+                            <code>${script.code}</code>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between border-t border-gray-800 pt-3 text-sm">
+                        <button onclick="likeScript('${script.id}', ${script.likes || 0})" class="text-gray-400 hover:text-emerald-400 flex items-center gap-1"><i class="fa-solid fa-thumbs-up"></i> ${script.likes || 0}</button>
+                        <button onclick="copyCode(this, \`${script.code}\`)" class="bg-gray-800 hover:bg-gray-700 text-xs px-3 py-1.5 rounded-lg text-gray-200 font-semibold transition">Copiar Código</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function filterScripts() {
+            const query = document.getElementById('searchInput').value;
+            renderScripts(query);
+        }
+
+        function openPublishModal() { document.getElementById('publishModal').classList.remove('hidden'); }
+        function closePublishModal() { document.getElementById('publishModal').classList.add('hidden'); }
+
+        async function publishScript() {
+            const title = document.getElementById('scriptTitle').value.trim();
+            const desc = document.getElementById('scriptDesc').value.trim();
+            const code = document.getElementById('scriptCode').value.trim();
+            const image = document.getElementById('scriptImage').value.trim();
+
+            if(!title || !code) {
+                alert("El título y el código del script son obligatorios.");
+                return;
+            }
+
+            await db.collection('scripts').add({
+                author: state.currentUser.username,
+                title, desc, code, image,
+                likes: 0,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            closePublishModal();
+            document.getElementById('scriptTitle').value = '';
+            document.getElementById('scriptDesc').value = '';
+            document.getElementById('scriptCode').value = '';
+            document.getElementById('scriptImage').value = '';
+        }
+
+        async function likeScript(id, currentLikes) {
+            await db.collection('scripts').doc(id).update({ likes: currentLikes + 1 });
+        }
+
+        async function deleteScript(id) {
+            await db.collection('scripts').doc(id).delete();
+        }
+
+        function copyCode(btn, codeText) {
+            navigator.clipboard.writeText(codeText);
+            const originalText = btn.innerText;
+            btn.innerText = "¡Copiado!";
+            setTimeout(() => btn.innerText = originalText, 2000);
+        }
+
+        async function openAdminModal() {
+            document.getElementById('adminModal').classList.remove('hidden');
+            const list = document.getElementById('adminUsersList');
+            list.innerHTML = '';
+            const snapshot = await db.collection('users').get();
+            snapshot.forEach(doc => {
+                const u = doc.data();
+                const item = document.createElement('div');
+                item.className = "flex justify-between items-center bg-gray-800 p-3 rounded-xl";
+                item.innerHTML = `
+                    <span class="text-sm font-bold text-white">${u.username} ${u.username === 'ZyntroxX' ? '(Admin)' : ''}</span>
+                    ${u.username !== 'ZyntroxX' ? `<button onclick="deleteUser('${u.username}')" class="bg-red-600/20 text-red-400 hover:bg-red-600/40 px-3 py-1 rounded-lg text-xs">Eliminar Cuenta</button>` : ''}
+                `;
+                list.appendChild(item);
+            });
+        }
+        function closeAdminModal() { document.getElementById('adminModal').classList.add('hidden'); }
+
+        async function deleteUser(username) {
+            await db.collection('users').doc(username).delete();
+            openAdminModal();
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.classList.toggle('dark');
+            const isDark = html.classList.contains('dark');
+            document.getElementById('themeText').innerText = isDark ? 'Modo Oscuro' : 'Modo Claro';
+            document.getElementById('themeIcon').className = isDark ? 'fa-solid fa-moon mr-2' : 'fa-solid fa-sun mr-2';
+        }
+
+        function changeLanguage(lang) {
+            console.log("Idioma cambiado a:", lang);
+        }
+    </script>
+</body>
+</html>
